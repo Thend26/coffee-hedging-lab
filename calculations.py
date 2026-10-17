@@ -3,6 +3,86 @@
 import math
 
 
+def partial_futures_hedged_cost(quantity: float, terminal_price: float,
+                                futures_price: float, hedge_ratio: float) -> float:
+    """Return simplified USD procurement cost with a long partial futures hedge.
+
+    Hedge ratio is a fraction from zero to one, not a percentage from 0 to 100.
+    Validate all inputs even for a zero hedge. Calculate cost directly rather
+    than subtracting large physical-cost and futures-P&L amounts.
+    """
+    for name, value in (("quantity", quantity), ("terminal_price", terminal_price),
+                        ("futures_price", futures_price), ("hedge_ratio", hedge_ratio)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError(f"{name} must be an int or float, not a boolean.")
+        try:
+            finite = math.isfinite(value)
+        except OverflowError:
+            raise ValueError(f"{name} is too large to represent.") from None
+        if not finite:
+            raise ValueError(f"{name} must be finite.")
+
+    if quantity <= 0:
+        raise ValueError("quantity must be greater than zero.")
+    if terminal_price < 0:
+        raise ValueError("terminal_price must be zero or greater.")
+    if futures_price <= 0:
+        raise ValueError("futures_price must be greater than zero.")
+    if not 0 <= hedge_ratio <= 1:
+        raise ValueError("hedge_ratio must be between zero and one inclusive.")
+
+    try:
+        cost = float(quantity * ((1 - hedge_ratio) * terminal_price
+                                 + hedge_ratio * futures_price))
+    except OverflowError:
+        raise ValueError("Calculated partial futures cost is too large to represent.") from None
+    if not math.isfinite(cost):
+        raise ValueError("Calculated partial futures cost must be finite.")
+    return cost
+
+
+def partial_call_hedged_cost(quantity: float, terminal_price: float,
+                             strike: float, premium: float,
+                             hedge_ratio: float) -> float:
+    """Return USD procurement cost with calls on hedge_ratio of the quantity.
+
+    Premium is undiscounted USD/lb and paid only on the hedged quantity.
+    Validate inputs even at zero hedge; avoid cancelling physical cost/payoff.
+    """
+    for name, value in (("quantity", quantity), ("terminal_price", terminal_price),
+                        ("strike", strike), ("premium", premium),
+                        ("hedge_ratio", hedge_ratio)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError(f"{name} must be an int or float, not a boolean.")
+        try:
+            finite = math.isfinite(value)
+        except OverflowError:
+            raise ValueError(f"{name} is too large to represent.") from None
+        if not finite:
+            raise ValueError(f"{name} must be finite.")
+
+    if quantity <= 0:
+        raise ValueError("quantity must be greater than zero.")
+    if terminal_price < 0:
+        raise ValueError("terminal_price must be zero or greater.")
+    if strike <= 0:
+        raise ValueError("strike must be greater than zero.")
+    if premium < 0:
+        raise ValueError("premium must be zero or greater.")
+    if not 0 <= hedge_ratio <= 1:
+        raise ValueError("hedge_ratio must be between zero and one inclusive.")
+
+    try:
+        cost = float(quantity * ((1 - hedge_ratio) * terminal_price
+                                 + hedge_ratio * min(terminal_price, strike)
+                                 + hedge_ratio * premium))
+    except OverflowError:
+        raise ValueError("Calculated partial call cost is too large to represent.") from None
+    if not math.isfinite(cost):
+        raise ValueError("Calculated partial call cost must be finite.")
+    return cost
+
+
 def call_hedged_cost(quantity: float, terminal_price: float,
                      strike: float, premium: float) -> float:
     """Return simplified USD cost including undiscounted option premium.
