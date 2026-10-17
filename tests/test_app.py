@@ -9,7 +9,7 @@ class AppTests(unittest.TestCase):
     def test_default_page(self):
         app = AppTest.from_file(str(APP)).run(timeout=20)
         self.assertEqual(len(app.exception), 0)
-        self.assertEqual([m.value for m in app.metric], ['$1,200.00', '$1,220.00', '$1,320.00'])
+        self.assertEqual([m.value for m in app.metric], ['$1,200.00', '$1,220.00', '$1,270.00'])
         self.assertEqual(len(app.dataframe[0].value), 101)
         self.assertEqual(len(app.get('plotly_chart')), 1)
         self.assertEqual(len(app.get('download_button')), 1)
@@ -19,7 +19,7 @@ class AppTests(unittest.TestCase):
         original = app.dataframe[0].value.copy()
         app.number_input(key='quantity').set_value(2000.0).run()
         self.assertEqual(len(app.exception), 0)
-        self.assertEqual([m.value for m in app.metric], ['$2,400.00', '$2,440.00', '$2,640.00'])
+        self.assertEqual([m.value for m in app.metric], ['$2,400.00', '$2,440.00', '$2,540.00'])
         self.assertAlmostEqual(app.dataframe[0].value.iloc[-1]['call_hedged_cost_usd'], 2640)
         for field in ('unhedged_cost_usd', 'futures_hedged_cost_usd', 'call_hedged_cost_usd'):
             for before, after in zip(original[field], app.dataframe[0].value[field]):
@@ -51,14 +51,14 @@ class AppTests(unittest.TestCase):
         app = AppTest.from_file(str(APP)).run(timeout=20)
         app.number_input(key='premium').set_value(0.0).run()
         self.assertEqual(len(app.exception), 0)
-        self.assertEqual(app.metric[2].value, '$1,250.00')
+        self.assertEqual(app.metric[2].value, '$1,200.00')
 
     def test_premium_increase_shifts_only_call_costs(self):
         app = AppTest.from_file(str(APP)).run(timeout=20)
         original = app.dataframe[0].value.copy()
         app.number_input(key='premium').set_value(0.10).run()
         self.assertEqual(len(app.exception), 0)
-        self.assertEqual([m.value for m in app.metric], ['$1,200.00', '$1,220.00', '$1,350.00'])
+        self.assertEqual([m.value for m in app.metric], ['$1,200.00', '$1,220.00', '$1,300.00'])
         updated = app.dataframe[0].value
         self.assertEqual(len(updated), 101)
         for field in ('unhedged_cost_usd', 'futures_hedged_cost_usd',
@@ -72,7 +72,7 @@ class AppTests(unittest.TestCase):
         original = app.dataframe[0].value.copy()
         app.number_input(key='strike').set_value(1.35).run()
         self.assertEqual(len(app.exception), 0)
-        self.assertEqual(app.metric[2].value, '$1,420.00')
+        self.assertEqual(app.metric[2].value, '$1,270.00')
         updated = app.dataframe[0].value
         for field in ('unhedged_cost_usd', 'futures_hedged_cost_usd'):
             self.assertEqual(original[field].tolist(), updated[field].tolist())
@@ -83,6 +83,36 @@ class AppTests(unittest.TestCase):
         from calculations import call_hedged_cost
         self.assertAlmostEqual(call_hedged_cost(1000, 1.00, 1.35, .07), 1070)
         self.assertAlmostEqual(call_hedged_cost(1000, 1.80, 1.35, .07), 1420)
+
+
+    def test_ratio_and_budget_controls_update_all_outputs(self):
+        app = AppTest.from_file(str(APP)).run(timeout=20)
+        self.assertEqual(app.slider(key='hedge_ratio').value, 1.0)
+        self.assertEqual(app.number_input(key='budget').value, 1300)
+        app.slider(key='hedge_ratio').set_value(.5).run()
+        self.assertEqual(len(app.exception), 0)
+        self.assertEqual([m.value for m in app.metric], ['$1,200.00', '$1,210.00', '$1,235.00'])
+        text = ' '.join(item.value for item in app.markdown)
+        self.assertNotIn('Full hedge cost bounds:', text)
+        summary = app.dataframe[1].value
+        self.assertEqual(summary['Scenarios over budget'].tolist(), [42, 35, 44])
+        app.number_input(key='budget').set_value(2000.0).run()
+        self.assertTrue((app.dataframe[0].value['budget_usd'] == 2000).all())
+        self.assertEqual(app.dataframe[1].value['Scenarios over budget'].tolist(), [0, 0, 0])
+        import json
+        spec = json.loads(app.get('plotly_chart')[0].proto.spec)
+        self.assertEqual(spec['layout']['shapes'][0]['y0'], 2000)
+
+    def test_zero_hedge_and_zero_premium_explanations(self):
+        app = AppTest.from_file(str(APP)).run(timeout=20)
+        app.slider(key='hedge_ratio').set_value(0.0).run()
+        self.assertEqual([m.value for m in app.metric], ['$1,200.00'] * 3)
+        self.assertIn('All nonnegative terminal prices',
+                      ' '.join(item.value for item in app.markdown))
+        app.slider(key='hedge_ratio').set_value(.5).run()
+        app.number_input(key='premium').set_value(0.0).run()
+        text = ' '.join(item.value for item in app.markdown)
+        self.assertIn('0 ≤ S ≤ 1.2500', text)
 
 
 if __name__ == '__main__':

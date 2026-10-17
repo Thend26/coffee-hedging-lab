@@ -13,7 +13,11 @@ FIELDS = [
     'physical_cost_usd', 'futures_pnl_usd', 'call_payoff_usd',
     'option_premium_usd', 'unhedged_cost_usd', 'futures_hedged_cost_usd',
     'call_hedged_cost_usd',
+    'hedge_ratio', 'budget_usd',
 ]
+for prefix in ('unhedged', 'futures_hedged', 'call_hedged'):
+    FIELDS.extend([f'{prefix}_savings_vs_unhedged_usd',
+                   f'{prefix}_budget_gap_usd', f'{prefix}_overspend_usd'])
 
 
 class FormalScenarioTests(unittest.TestCase):
@@ -30,8 +34,55 @@ class FormalScenarioTests(unittest.TestCase):
         for row, wanted in ((rows[0], [.6, 600, -620, 0, 70, 600, 1220, 670]),
                             (rows[-1], [1.8, 1800, 580, 550, 70, 1800, 1220, 1320])):
             self.assertEqual([row[k] for k in FIELDS[:5]], [1000, 1.2, 1.22, 1.25, .07])
-            for key, value in zip(FIELDS[5:], wanted):
+            for key, value in zip(FIELDS[5:13], wanted):
                 self.assertAlmostEqual(row[key], value)
+
+    def test_partial_hedge_cashflows_and_budget_fields(self):
+        rows = self.build(hedge_ratio=.5, budget_usd=1300)
+        last = rows[-1]
+        for key, expected in {'futures_pnl_usd': 290, 'call_payoff_usd': 275,
+                              'option_premium_usd': 35, 'unhedged_cost_usd': 1800,
+                              'futures_hedged_cost_usd': 1510,
+                              'call_hedged_cost_usd': 1560,
+                              'futures_hedged_savings_vs_unhedged_usd': 290,
+                              'call_hedged_budget_gap_usd': 260,
+                              'call_hedged_overspend_usd': 260}.items():
+            self.assertAlmostEqual(last[key], expected)
+        self.assertEqual(len(rows), 101)
+        for row in rows:
+            self.assertEqual(row['hedge_ratio'], .5)
+            self.assertEqual(row['budget_usd'], 1300)
+            for prefix in ('unhedged', 'futures_hedged', 'call_hedged'):
+                cost = row[f'{prefix}_cost_usd']
+                self.assertAlmostEqual(row[f'{prefix}_budget_gap_usd'], cost - 1300)
+                self.assertAlmostEqual(row[f'{prefix}_overspend_usd'], max(cost - 1300, 0))
+                self.assertAlmostEqual(row[f'{prefix}_savings_vs_unhedged_usd'],
+                                       row['unhedged_cost_usd'] - cost)
+
+    def test_zero_hedge_has_no_derivative_cashflows(self):
+        for row in self.build(hedge_ratio=0):
+            for key in ('futures_pnl_usd', 'call_payoff_usd', 'option_premium_usd'):
+                self.assertEqual(row[key], 0)
+            self.assertEqual(row['futures_hedged_cost_usd'], row['unhedged_cost_usd'])
+            self.assertEqual(row['call_hedged_cost_usd'], row['unhedged_cost_usd'])
+
+    def test_new_inputs_reject_invalid_values(self):
+        for name in ('hedge_ratio', 'budget_usd'):
+            for value in (-1, float('nan'), float('inf')):
+                with self.assertRaises(ValueError):
+                    self.build(**{name: value})
+            for value in (True, '1'):
+                with self.assertRaises(TypeError):
+                    self.build(**{name: value})
+        with self.assertRaises(ValueError):
+            self.build(hedge_ratio=1.1)
+
+    def test_partial_hedge_csv_roundtrip(self):
+        rows = self.build(hedge_ratio=.37, budget_usd=1350.123456789)
+        saved = list(csv.DictReader(io.StringIO(scenarios_to_csv(rows))))
+        for source, restored in zip(rows, saved):
+            for key in FIELDS:
+                self.assertEqual(float(restored[key]), source[key])
 
     def test_current_spot_only_changes_reference(self):
         for before, after in zip(self.build(), self.build(current_spot=9)):

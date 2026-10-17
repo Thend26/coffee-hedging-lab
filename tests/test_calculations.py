@@ -2,7 +2,143 @@ import unittest
 
 from calculations import (
     unhedged_cost, futures_pnl, futures_hedged_cost, call_payoff, call_hedged_cost,
+    partial_futures_hedged_cost, partial_call_hedged_cost,
 )
+
+
+class PartialFuturesCostTests(unittest.TestCase):
+    def test_zero_half_and_full_hedge_costs(self):
+        for ratio, expected in ((0, 1500), (0.5, 1360), (1, 1220)):
+            with self.subTest(ratio=ratio):
+                self.assertAlmostEqual(
+                    partial_futures_hedged_cost(1000, 1.5, 1.22, ratio), expected)
+
+    def test_full_hedge_matches_legacy(self):
+        for price in (0, 1, 1.22, 1.8, 1e20):
+            with self.subTest(price=price):
+                self.assertEqual(partial_futures_hedged_cost(1000, price, 1.22, 1),
+                                 futures_hedged_cost(1000, price, 1.22))
+
+    def test_quantity_scaling(self):
+        self.assertAlmostEqual(partial_futures_hedged_cost(2000, 1.5, 1.22, .5), 2720)
+        self.assertAlmostEqual(partial_futures_hedged_cost(2.5, 1.5, 1.22, .5), 3.4)
+
+    def test_zero_terminal_price(self):
+        self.assertAlmostEqual(partial_futures_hedged_cost(1000, 0, 1.22, .5), 610)
+
+    def test_half_hedge_residual_price_sensitivity(self):
+        low = partial_futures_hedged_cost(1000, 1, 1.22, .5)
+        high = partial_futures_hedged_cost(1000, 1.1, 1.22, .5)
+        self.assertAlmostEqual(high - low, 50)
+
+    def test_rejects_invalid_types_in_every_parameter(self):
+        for value in ('0.5', True, False, None, [], 1+2j):
+            for index in range(4):
+                args = [1000, 1.5, 1.22, .5]
+                args[index] = value
+                with self.subTest(index=index, value=value):
+                    with self.assertRaises(TypeError):
+                        partial_futures_hedged_cost(*args)
+
+    def test_rejects_nonfinite_or_unrepresentable_inputs(self):
+        for value in (float('nan'), float('inf'), float('-inf'), 10**400):
+            for index in range(4):
+                args = [1000, 1.5, 1.22, .5]
+                args[index] = value
+                with self.subTest(index=index, value=value):
+                    with self.assertRaises(ValueError):
+                        partial_futures_hedged_cost(*args)
+
+    def test_rejects_invalid_domains_even_at_zero_hedge(self):
+        for args in ((0, 1, 1, .5), (-1, 1, 1, .5), (1, -1, 1, .5),
+                     (1, 1, 0, 0), (1, 1, -1, 0),
+                     (1, 1, 1, -.1), (1, 1, 1, 1.1)):
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError):
+                    partial_futures_hedged_cost(*args)
+
+    def test_rejects_output_overflow(self):
+        with self.assertRaises(ValueError):
+            partial_futures_hedged_cost(1e308, 1e308, 1, .5)
+
+
+class PartialCallCostTests(unittest.TestCase):
+    def test_half_hedge_below_and_above_strike(self):
+        for price, expected in ((1, 1035), (1.5, 1410)):
+            with self.subTest(price=price):
+                self.assertAlmostEqual(
+                    partial_call_hedged_cost(1000, price, 1.25, .07, .5), expected)
+
+    def test_zero_hedge_matches_unhedged(self):
+        for price in (0, 1, 1.25, 1.8):
+            with self.subTest(price=price):
+                self.assertEqual(partial_call_hedged_cost(1000, price, 1.25, .07, 0),
+                                 unhedged_cost(1000, price))
+
+    def test_full_hedge_matches_legacy(self):
+        for price in (0, 1, 1.25, 1.8, 1e20):
+            with self.subTest(price=price):
+                self.assertAlmostEqual(
+                    partial_call_hedged_cost(1000, price, 1.25, .07, 1),
+                    call_hedged_cost(1000, price, 1.25, .07))
+
+    def test_quantity_scaling(self):
+        self.assertAlmostEqual(partial_call_hedged_cost(2000, 1.5, 1.25, .07, .5), 2820)
+        self.assertAlmostEqual(partial_call_hedged_cost(2.5, 1.5, 1.25, .07, .5), 3.525)
+
+    def test_continuity_and_slopes_at_strike(self):
+        below = partial_call_hedged_cost(1000, 1.24, 1.25, .07, .5)
+        at_strike = partial_call_hedged_cost(1000, 1.25, 1.25, .07, .5)
+        above = partial_call_hedged_cost(1000, 1.26, 1.25, .07, .5)
+        self.assertAlmostEqual(at_strike, 1285)
+        self.assertAlmostEqual(at_strike - below, 10)
+        self.assertAlmostEqual(above - at_strike, 5)
+
+    def test_premium_increase_scales_with_hedged_quantity(self):
+        for price in (0, 1, 1.25, 1.8):
+            with self.subTest(price=price):
+                low = partial_call_hedged_cost(1000, price, 1.25, .07, .5)
+                high = partial_call_hedged_cost(1000, price, 1.25, .10, .5)
+                self.assertAlmostEqual(high - low, 15)
+
+    def test_allows_zero_premium(self):
+        self.assertAlmostEqual(partial_call_hedged_cost(1000, 1.5, 1.25, 0, .5), 1375)
+
+    def test_zero_terminal_price_only_pays_hedged_premium(self):
+        self.assertAlmostEqual(partial_call_hedged_cost(1000, 0, 1.25, .07, .5), 35)
+
+    def test_rejects_invalid_types_in_every_parameter(self):
+        for value in ('0.5', True, False, None, [], 1+2j):
+            for index in range(5):
+                args = [1000, 1.5, 1.25, .07, .5]
+                args[index] = value
+                with self.subTest(index=index, value=value):
+                    with self.assertRaises(TypeError):
+                        partial_call_hedged_cost(*args)
+
+    def test_rejects_nonfinite_or_unrepresentable_inputs(self):
+        for value in (float('nan'), float('inf'), float('-inf'), 10**400):
+            for index in range(5):
+                args = [1000, 1.5, 1.25, .07, .5]
+                args[index] = value
+                with self.subTest(index=index, value=value):
+                    with self.assertRaises(ValueError):
+                        partial_call_hedged_cost(*args)
+
+    def test_rejects_invalid_domains_even_at_zero_hedge(self):
+        for args in ((0, 1, 1, 0, .5), (-1, 1, 1, 0, .5),
+                     (1, -1, 1, 0, .5), (1, 1, 0, 0, 0),
+                     (1, 1, -1, 0, 0), (1, 1, 1, -.01, 0),
+                     (1, 1, 1, 0, -.1), (1, 1, 1, 0, 1.1)):
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError):
+                    partial_call_hedged_cost(*args)
+
+    def test_rejects_output_overflow(self):
+        for args in ((1e308, 1e308, 1, 0, .5), (1e308, 1, 1, 1e308, .5)):
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError):
+                    partial_call_hedged_cost(*args)
 
 
 class UnhedgedCostTests(unittest.TestCase):
