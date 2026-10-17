@@ -2,6 +2,8 @@
 
 An independent, AI-assisted educational Python project comparing a coffee buyer's procurement costs under three strategies: no hedge, fully matched futures, and purchased call options.
 
+**Live app:** https://max-yao-coffee-hedging-lab.streamlit.app/
+
 ## Features
 
 - Interactive Streamlit dashboard with Plotly charts.
@@ -21,7 +23,7 @@ streamlit run app.py
 python -m unittest discover -s tests -q
 ```
 
-For Community Cloud deployment, choose `app.py` as the entry point and Python 3.12. Live deployment is pending.
+Deployed on Streamlit Community Cloud from `main`, with `app.py` as the entry point and Python 3.12.
 
 ## Model
 
@@ -51,4 +53,6 @@ Built by Max (Ningyuan) Yao as a guided learning project. The author worked thro
 
 ## Local acceptance
 
-83 tests passed in a fresh Python 3.12 environment on macOS ARM64. Actual browser CSV downloads matched all 101 rows and 13 fields at default and changed quantity. Responsive layouts checked at 390×844 and 320×740 in desktop Chrome; physical mobile devices and the eventual cloud runtime still require separate verification.
+83 tests passed in a fresh Python 3.12 environment on macOS ARM64. Actual browser CSV downloads matched all 101 rows and 13 fields at default and changed quantity. Responsive layouts checked at 390×844 and 320×740 in desktop Chrome; physical mobile devices require separate verification.
+
+Live acceptance on 17 October 2026: default metrics, quantity update and invalid-bound protection verified. Actual cloud CSV download matched all 1,313 values against local recalculation; 390-pixel browser viewport checked. Physical mobile hardware testing remains separate.
