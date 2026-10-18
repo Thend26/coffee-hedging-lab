@@ -1,6 +1,6 @@
 # Coffee Hedging Lab
 
-Independent educational scenario analyser for a coffee buyer. V2 compares unhedged procurement, partial futures and call hedges, analytical break-even and deterministic budget stress. The local Black–76 laboratory adds European futures-call model pricing and controlled sensitivities. Hypothetical inputs only; no live quotes, forecasts or trade execution. The public deployment remains V2, verified on 17 October 2026; the laboratory is local only.
+Independent educational scenario analyser for a coffee buyer. V2 compares unhedged procurement, partial futures and call hedges, analytical break-even and deterministic budget stress. The Black–76 laboratory adds European futures-call model pricing and controlled sensitivities. Hypothetical inputs only; no live quotes, forecasts or trade execution. Both modes are included in the 18 October 2026 release; V2 remains the default.
 
 ## Run locally
 
@@ -50,7 +50,7 @@ Cost slopes with respect to S are Q (unhedged), Q(1-h) (futures), and Q below K 
 
 Worked half-hedge example: Q=1000,h=.5,F=1.22,K=1.25,p=.07,S=1.5 gives costs $1500/$1360/$1410. Against budget $1300, overspends are $200/$60/$110. Across the default [.6,1.8] interval, half-hedge overspend counts are 42/35/44 out of 101, and interval maximum costs $1800/$1510/$1560. Counts are NOT probabilities: no distribution or likelihood weights are assumed. Equality with budget is not overspending. Interval maxima are not unrestricted worst-case costs.
 
-## Black–76 laboratory (local only)
+## Black–76 laboratory
 
 Choose **Analysis mode → Black–76 laboratory** in the sidebar. V2 remains the default, retaining its manually entered premium and 24-column export. Only the selected mode executes. Defaults: Q=1000 lb, reference spot=1.20, current futures F0=1.22, strike K=1.25 USD/lb, sigma=30%, T=0.5 years, continuous pricing/financing rate r=3%, h=1, budget at T=USD1300, scenario interval [0.6,1.8]. Enter UI percentages as30 and3, not .30 and .03.
 
@@ -99,7 +99,7 @@ discount_factor
 
 Per-lb model quotes remain at h=0, but total premiums are zero. Total terminal premium equals `option_premium_usd`. Defaults give c0≈0.088661, pT≈0.090001 USD/lb, total premiums today/at T≈USD88.66/USD90.00; full-call ceiling≈USD1340.00 and break-even≈1.340001 USD/lb. Display rounding does not change CSV values.
 
-Local browser acceptance on18 October2026 checked two actual downloads (sigma30% and60%): all3232 cells in each matched fresh calculations. Mode switches restored V2 reference costs1200/1220/1270. Checked390×844 and320×740 views were readable with no document-wide horizontal overflow; wide tables scroll internally. Invalid minimum2 above maximum1.8 removed outputs/downloads. Inputs and viewport restored. This is browser emulation, not physical-device certification. Full suite176 tests passed. Evidence: `docs/acceptance-black76-2026-10-18.md`. No public release was made.
+Local browser acceptance on 18 October 2026 checked two actual downloads (sigma30% and60%): all3232 cells in each matched fresh calculations. Mode switches restored V2 reference costs1200/1220/1270. Checked390×844 and320×740 views were readable with no document-wide horizontal overflow; wide tables scroll internally. Invalid minimum2 above maximum1.8 removed outputs/downloads. Inputs and viewport restored. This is browser emulation, not physical-device certification. Full suite176 tests passed. The subsequent public release and cloud CSV checks are recorded in [Black–76 release verification](RELEASE_BLACK76.md).
 
 ## Learning and AI assistance
 
@@ -107,10 +107,12 @@ Built by Max (Ningyuan) Yao as a guided learning project. The author worked thro
 
 ## Deployment status
 
+Black–76 released on 18 October 2026, application commit `51e97ee`, test commit `80f80af`. Actual remote source passed all176 tests in the project runtime and an existing independent Python environment (not a fresh installation); pip check found no broken requirements. Cloud testing verified lab/V2 switching and downloaded two lab CSVs (3232 cells each) plus one V2 CSV (2424 cells). All passed numerical comparison at relative/absolute tolerance1e-12. The sigma60% cloud file had a maximum absolute difference of1.14e-13 from local calculations, consistent with platform floating-point rounding. See [release verification](RELEASE_BLACK76.md).
+
 Public app: https://max-yao-coffee-hedging-lab.streamlit.app/
 
 Source: https://github.com/Thend26/coffee-hedging-lab
 
 V2 deployed on Streamlit Community Cloud using main/app.py and Python 3.12 on 17 October 2026, repository commit 5628bd2. Actual remote source passed 127 tests. Live checks covered default and half-hedge reference costs, budget changes, zero hedge, zero premium and invalid-range protection. Two actual cloud CSV downloads each matched all 2,424 numeric values. The 390px browser viewport was visually checked; physical mobile hardware testing is separate. See `docs/acceptance-v2-2026-10-17.md` for local acceptance and `docs/release-v2-2026-10-17.md` for release evidence. No user accounts, personal data or API credentials are required by the app.
 
-Prices and premiums are USD per pound; quantity is pounds; costs are USD. Perfect matching is assumed. V2 excludes interest and uses undiscounted premium cashflows; the local laboratory instead includes the explicitly matched premium-financing convention described above. Both exclude basis risk, contract sizing, margin funding, fees, taxes and counterparty risk. This is not investment advice and is independent of Citi and Forage.
+Prices and premiums are USD per pound; quantity is pounds; costs are USD. Perfect matching is assumed. V2 excludes interest and uses undiscounted premium cashflows; the laboratory instead includes the explicitly matched premium-financing convention described above. Both exclude basis risk, contract sizing, margin funding, fees, taxes and counterparty risk. This is not investment advice and is independent of Citi and Forage.
