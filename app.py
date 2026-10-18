@@ -13,6 +13,13 @@ st.title('Coffee Hedging Lab')
 st.markdown('Compare procurement costs across future coffee prices.')
 st.caption('Buyer perspective · Independent educational project · Hypothetical inputs, not live quotes')
 
+mode = st.sidebar.selectbox('Analysis mode', ['V2 simplified', 'Black–76 laboratory'],
+                            key='analysis_mode')
+if mode == 'Black–76 laboratory':
+    from lab_app import render_lab
+    render_lab()
+    st.stop()
+
 with st.sidebar:
     st.header('Procurement assumptions')
     quantity = st.number_input('Purchase quantity (lb)', min_value=0.0, max_value=1e9,
